@@ -11,10 +11,12 @@ btc_balance = 0.0
 btc_buy_price = None
 trailing_stop_price = None
 
+import os
+
 # Email config (à remplacer par tes infos)
-EMAIL_ADDRESS = "ton_email@gmail.com"
-EMAIL_PASSWORD = "ton_mot_de_passe_app"
-TO_EMAIL = "destinataire@gmail.com"
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+TO_EMAIL = os.getenv("TO_EMAIL")
 
 def send_email(subject, body):
     msg = EmailMessage()
