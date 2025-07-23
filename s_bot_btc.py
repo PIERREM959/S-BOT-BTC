@@ -31,11 +31,24 @@ def send_email(subject, body):
 
 def get_btc_price():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="1m", interval="1m")
+    data = ticker.history(period="1d", interval="1m")  # Utilise period=1d pour avoir des données
+    if data.empty:
+        print("⚠️ Pas de données reçues, on réessaie dans 1 min...")
+        time.sleep(60)
+        return get_btc_price()  # On retente
     return data["Close"].iloc[-1]
 
+
 def buy_btc(price):
-    global usd_balance, btc_balance
+    global usd_balance, btc_balancedef get_btc_price():
+    ticker = yf.Ticker("BTC-USD")
+    data = ticker.history(period="1d", interval="1m")  # Utilise period=1d pour avoir des données
+    if data.empty:
+        print("⚠️ Pas de données reçues, on réessaie dans 1 min...")
+        time.sleep(60)
+        return get_btc_price()  # On retente
+    return data["Close"].iloc[-1]
+
     cost = investment_amount * price
     if usd_balance >= cost:
         usd_balance -= cost
