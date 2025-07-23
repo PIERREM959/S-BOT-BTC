@@ -1,0 +1,20 @@
+
+---
+
+🔥 Avec ces **4 fichiers**, ton repo GitHub sera propre et ton bot sera prêt à déployer.
+
+---
+
+👉 **Prochaine étape :**
+- Tu crées un nouveau repo sur GitHub (si pas déjà fait).
+- Tu ajoutes **ces 4 fichiers**.
+- Tu connectes à **Render** comme on a fait.
+- Tu choisis **Background Worker** et mets :
+  - Build Command → `pip install -r requirements.txt`
+  - Start Command → `python s_bot_btc.py`
+
+✅ Et ton bot tourne en continu.
+
+---
+
+Veux-tu que **je t’écrive la procédure finale ultra simple pour mettre ces fichiers dans GitHub directement via le site** (sans terminal) ?
