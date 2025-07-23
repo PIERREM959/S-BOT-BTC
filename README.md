@@ -8,3 +8,5 @@ Bot fictif pour trading BTC/USD avec achat périodique et trailing stop.
 - Portefeuille fictif : 10 000 USD au départ
 
 ## Lancement :
+pip install -r requirements.txt
+python s_bot_btc.py
