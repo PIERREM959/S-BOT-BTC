@@ -80,7 +80,6 @@ while True:
 
     # Achat toutes les 15 minutes
     if buy_btc(price):
-        global btc_buy_price, trailing_stop_price
         if trailing_stop_price is None:
             trailing_stop_price = price * (1 - trailing_stop_percentage / 100)
         btc_buy_price = price
