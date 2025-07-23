@@ -7,6 +7,7 @@ import os
 # ===== Paramètres ajustables =====
 investment_amount = 0.001  # BTC à acheter toutes les 15 min
 trailing_stop_percentage = 0.3  # en %
+sleep_time = 900  # 15 minutes (en secondes)
 usd_balance = 10000.0
 btc_balance = 0.0
 btc_buy_price = None
@@ -98,4 +99,8 @@ while True:
         btc_buy_price = None
 
     print(f"💰 Solde USD: {usd_balance:.2f}, BTC: {btc_balance:.6f}")
-    time.sleep(900)  # 15 minutes
+
+    # Heartbeat pendant la pause
+    for i in range(int(sleep_time / 60), 0, -1):
+        print(f"⏳ Bot en veille, prochaine action dans {i} minute(s)...")
+        time.sleep(60)
