@@ -29,14 +29,18 @@ def send_email(subject, body):
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         smtp.send_message(msg)
 
+import yfinance as yf
+import time
+
 def get_btc_price():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="1d", interval="1m")  # Utilise period=1d pour avoir des données
+    data = ticker.history(period="1d", interval="1m")  # Correct
     if data.empty:
-        print("⚠️ Pas de données reçues, on réessaie dans 1 min...")
+        print("⚠️ Pas de données reçues, on réessaie dans 1 minute...")
         time.sleep(60)
-        return get_btc_price()  # On retente
+        return get_btc_price()  # Réessaye
     return data["Close"].iloc[-1]
+
 
 
 def buy_btc(price):
