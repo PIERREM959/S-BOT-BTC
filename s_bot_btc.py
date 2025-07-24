@@ -11,8 +11,8 @@ init(autoreset=True)  # Reset des couleurs après chaque print
 # ===== Paramètres ajustables =====
 investment_amount = 0.001  # BTC à acheter à chaque cycle
 trailing_stop_percentage = 0.05  # en % (0,05 %)
-sleep_time = 10  # secondes
-usd_balance = 10000.0
+sleep_time = 30  # secondes
+usd_balance = 100000
 btc_balance = 0.0
 highest_price = None
 trailing_stop_price = None
