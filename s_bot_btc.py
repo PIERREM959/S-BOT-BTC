@@ -10,7 +10,7 @@ init(autoreset=True)  # Reset couleurs après chaque print
 
 # ===== Paramètres ajustables =====
 investment_amount = 0.01  # BTC par achat
-trailing_stop_percentage = 0.2  # en % (0,2%)
+trailing_stop_percentage = 0.5  # en % (0,5%)
 sleep_time = 300  # 5 minutes
 usd_balance = 100000.0  # Capital initial
 btc_balance = 0.0
