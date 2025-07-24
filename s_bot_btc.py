@@ -4,15 +4,15 @@ import smtplib
 from email.message import EmailMessage
 import os
 from datetime import datetime
-from colorama import Fore, Style, init
+from colorama import Fore, init
 
 init(autoreset=True)  # Reset des couleurs après chaque print
 
 # ===== Paramètres ajustables =====
 investment_amount = 0.01  # BTC à acheter à chaque cycle
 trailing_stop_percentage = 0.2  # en % (0,2%)
-sleep_time = 300  # secondes
-usd_balance = 100000
+sleep_time = 300  # 5 minutes
+usd_balance = 100000.0
 btc_balance = 0.0
 highest_price = None
 trailing_stop_price = None
@@ -32,7 +32,7 @@ def send_email(subject, body):
             msg["To"] = TO_EMAIL
             msg.set_content(body)
 
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as smtp:
                 smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
                 smtp.send_message(msg)
 
@@ -42,15 +42,19 @@ def send_email(subject, body):
     else:
         print(Fore.YELLOW + "⚠️ EMAIL non configuré, email ignoré.")
 
-# ===== Fonction pour obtenir le prix BTC =====
-def get_btc_price():
+# ===== Prix + MM30 =====
+def get_price_and_mm30():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="1d", interval="1m")
-    if data.empty:
-        print(Fore.YELLOW + "⚠️ Pas de données reçues, retry...")
+    data = ticker.history(period="1d", interval="5m")  # Interval 5 min
+    if data.empty or len(data) < 30:
+        print(Fore.YELLOW + "⚠️ Pas assez de données pour MM30, retry...")
         time.sleep(10)
-        return get_btc_price()
-    return data["Close"].iloc[-1]
+        return get_price_and_mm30()
+
+    close_prices = data["Close"].iloc[-30:]  # 30 dernières bougies
+    price = close_prices.iloc[-1]
+    mm30 = close_prices.mean()
+    return price, mm30
 
 # ===== Achat BTC =====
 def buy_btc(price):
@@ -77,29 +81,34 @@ def sell_all_btc(price):
         highest_price = None
         trailing_stop_price = None
 
-# ===== Variables pour email horaire =====
+# ===== Variables email horaire =====
 last_email_time = time.time()
 
-# ===== Boucle principale =====
-print(Fore.CYAN + "🚀 S-BOT-BTC démarré avec la configuration suivante :")
+# ===== Logs init =====
+print(Fore.CYAN + "🚀 S-BOT-BTC avec MM30 démarré")
 print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
-print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% (logique High Watermark)")
+print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM30 active")
 print(Fore.CYAN + "=========================================\n")
 
+# ===== Boucle principale =====
 while True:
-    price = get_btc_price()
-    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD")
+    price, mm30 = get_price_and_mm30()
+    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM30 : {mm30:.2f} USD")
 
-    # Achat systématique
-    buy_btc(price)
+    # Achat uniquement si Prix > MM30
+    if price > mm30:
+        print(Fore.GREEN + "✅ Condition remplie : Achat autorisé.")
+        buy_btc(price)
+    else:
+        print(Fore.YELLOW + "⏸️ Condition non remplie : Pas d'achat (standby).")
 
-    # Mise à jour du highest price et du trailing stop
+    # Mise à jour trailing stop
     if highest_price is None or price > highest_price:
         highest_price = price
         trailing_stop_price = highest_price * (1 - trailing_stop_percentage / 100)
         print(Fore.BLUE + f"🛡️ Nouveau trailing stop : {trailing_stop_price:.2f} USD")
 
-    # Vérification du stop
+    # Vérification du stop (vente uniquement si prix <= trailing stop)
     if btc_balance > 0 and price <= trailing_stop_price:
         sell_all_btc(price)
 
@@ -111,7 +120,7 @@ while True:
     if time.time() - last_email_time >= 3600:
         send_email(
             "Rapport horaire - S Bot BTC",
-            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}"
+            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM30: {mm30:.2f}"
         )
         last_email_time = time.time()
 
