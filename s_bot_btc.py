@@ -9,9 +9,9 @@ from colorama import Fore, Style, init
 init(autoreset=True)  # Reset des couleurs après chaque print
 
 # ===== Paramètres ajustables =====
-investment_amount = 0.001  # BTC à acheter à chaque cycle
-trailing_stop_percentage = 0.05  # en % (0,05 %)
-sleep_time = 30  # secondes
+investment_amount = 0.01  # BTC à acheter à chaque cycle
+trailing_stop_percentage = 0.2  # en % (0,2%)
+sleep_time = 300  # secondes
 usd_balance = 100000
 btc_balance = 0.0
 highest_price = None
