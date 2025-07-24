@@ -6,8 +6,8 @@ import os
 
 # ===== Paramètres ajustables =====
 investment_amount = 0.001  # BTC à acheter toutes les 5 min
-trailing_stop_percentage = 0.1  # en %
-sleep_time = 300  # 5 minutes (en secondes)
+trailing_stop_percentage = 0.05  # en %
+sleep_time = 30  # 30 (en secondes)
 usd_balance = 10000.0
 btc_balance = 0.0
 btc_buy_price = None
