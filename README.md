@@ -3,9 +3,9 @@
 Bot fictif qui achète du BTC toutes les 15 minutes, applique un trailing stop, et envoie un email lors des ventes.
 
 ## ✅ Fonctionnalités
-- Achat automatique (par défaut 0.001 BTC toutes les 15 minutes)
-- Trailing Stop dynamique (par défaut 0.3%)
-- Solde fictif (10 000 USD)
+- Achat automatique (par défaut 0.01 BTC toutes les 5 minutes)
+- Trailing Stop dynamique (0.2%)
+- Solde fictif (100000 USD)
 - Envoi d'un email après chaque vente
 - Logs en temps réel avec heartbeat
 
