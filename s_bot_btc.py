@@ -10,8 +10,8 @@ init(autoreset=True)  # Reset couleurs après chaque print
 
 # ===== Paramètres ajustables =====
 investment_amount = 0.01  # BTC par achat
-trailing_stop_percentage = 0.5  # en % (0,5%)
-sleep_time = 300  # 5 minutes
+trailing_stop_percentage = 0.4  # en % (0,4%)
+sleep_time = 900  # 5 minutes
 usd_balance = 100000.0  # Capital initial
 btc_balance = 0.0
 highest_price = None
@@ -42,16 +42,16 @@ def send_email(subject, body):
     else:
         print(Fore.YELLOW + "⚠️ EMAIL non configuré, email ignoré.")
 
-# ===== Récup prix BTC + MM30 =====
-def get_price_and_mm30():
+# ===== Récup prix BTC + MM50 =====
+def get_price_and_mm50():
     ticker = yf.Ticker("BTC-USD")
     data = ticker.history(period="1d", interval="5m")
-    if data.empty or len(data) < 30:
-        print(Fore.YELLOW + "⚠️ Pas assez de données pour MM30, retry...")
+    if data.empty or len(data) < 50:
+        print(Fore.YELLOW + "⚠️ Pas assez de données pour MM50, retry...")
         time.sleep(10)
         return get_price_and_mm30()
 
-    close_prices = data["Close"].iloc[-30:]
+    close_prices = data["Close"].iloc[-50:]
     price = close_prices.iloc[-1]
     mm30 = close_prices.mean()
     return price, mm30
@@ -85,18 +85,18 @@ def sell_all_btc(price):
 last_email_time = time.time()
 
 # ===== Logs init =====
-print(Fore.CYAN + "🚀 S-BOT-BTC avec MM30 + Contrôle Budget démarré")
+print(Fore.CYAN + "🚀 S-BOT-BTC avec MM50 + Contrôle Budget démarré")
 print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
-print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM30 active")
+print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM50 active")
 print(Fore.CYAN + "=========================================\n")
 
 # ===== Boucle principale =====
 while True:
-    price, mm30 = get_price_and_mm30()
-    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM30 : {mm30:.2f} USD")
+    price, mm50 = get_price_and_mm50()
+    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD")
 
-    # Achat uniquement si Prix > MM30
-    if price > mm30:
+    # Achat uniquement si Prix > MM50
+    if price > mm50:
         print(Fore.GREEN + "✅ Condition remplie : Achat autorisé.")
         if usd_balance >= investment_amount * price:
             buy_btc(price)
@@ -123,7 +123,7 @@ while True:
     if time.time() - last_email_time >= 3600:
         send_email(
             "Rapport horaire - S Bot BTC",
-            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM30: {mm30:.2f}"
+            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm30:.2f}"
         )
         last_email_time = time.time()
 
