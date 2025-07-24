@@ -6,23 +6,23 @@ import os
 from datetime import datetime
 from colorama import Fore, init
 
-init(autoreset=True)  # Reset des couleurs après chaque print
+init(autoreset=True)  # Reset couleurs après chaque print
 
 # ===== Paramètres ajustables =====
-investment_amount = 0.01  # BTC à acheter à chaque cycle
+investment_amount = 0.01  # BTC par achat
 trailing_stop_percentage = 0.2  # en % (0,2%)
 sleep_time = 300  # 5 minutes
-usd_balance = 100000.0
+usd_balance = 100000.0  # Capital initial
 btc_balance = 0.0
 highest_price = None
 trailing_stop_price = None
 
-# ===== Variables d'environnement =====
+# ===== Variables d'environnement (Render) =====
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAIL = os.getenv("TO_EMAIL")
 
-# ===== Fonction email =====
+# ===== Envoi email =====
 def send_email(subject, body):
     if EMAIL_ADDRESS and EMAIL_PASSWORD and TO_EMAIL:
         try:
@@ -42,16 +42,16 @@ def send_email(subject, body):
     else:
         print(Fore.YELLOW + "⚠️ EMAIL non configuré, email ignoré.")
 
-# ===== Prix + MM30 =====
+# ===== Récup prix BTC + MM30 =====
 def get_price_and_mm30():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="1d", interval="5m")  # Interval 5 min
+    data = ticker.history(period="1d", interval="5m")
     if data.empty or len(data) < 30:
         print(Fore.YELLOW + "⚠️ Pas assez de données pour MM30, retry...")
         time.sleep(10)
         return get_price_and_mm30()
 
-    close_prices = data["Close"].iloc[-30:]  # 30 dernières bougies
+    close_prices = data["Close"].iloc[-30:]
     price = close_prices.iloc[-1]
     mm30 = close_prices.mean()
     return price, mm30
@@ -65,7 +65,7 @@ def buy_btc(price):
         btc_balance += investment_amount
         print(Fore.GREEN + f"🟢 Achat : {investment_amount} BTC à {price:.2f} USD")
     else:
-        print(Fore.RED + "❌ Solde insuffisant pour acheter.")
+        print(Fore.RED + "⏸ Achat suspendu : Solde USD insuffisant.")
 
 # ===== Vente BTC =====
 def sell_all_btc(price):
@@ -85,7 +85,7 @@ def sell_all_btc(price):
 last_email_time = time.time()
 
 # ===== Logs init =====
-print(Fore.CYAN + "🚀 S-BOT-BTC avec MM30 démarré")
+print(Fore.CYAN + "🚀 S-BOT-BTC avec MM30 + Contrôle Budget démarré")
 print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
 print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM30 active")
 print(Fore.CYAN + "=========================================\n")
@@ -98,9 +98,12 @@ while True:
     # Achat uniquement si Prix > MM30
     if price > mm30:
         print(Fore.GREEN + "✅ Condition remplie : Achat autorisé.")
-        buy_btc(price)
+        if usd_balance >= investment_amount * price:
+            buy_btc(price)
+        else:
+            print(Fore.RED + "⏸ Achat suspendu : Solde USD insuffisant.")
     else:
-        print(Fore.YELLOW + "⏸️ Condition non remplie : Pas d'achat (standby).")
+        print(Fore.YELLOW + "⏸ Condition non remplie : Pas d'achat (standby).")
 
     # Mise à jour trailing stop
     if highest_price is None or price > highest_price:
@@ -108,7 +111,7 @@ while True:
         trailing_stop_price = highest_price * (1 - trailing_stop_percentage / 100)
         print(Fore.BLUE + f"🛡️ Nouveau trailing stop : {trailing_stop_price:.2f} USD")
 
-    # Vérification du stop (vente uniquement si prix <= trailing stop)
+    # Vente si prix <= trailing stop
     if btc_balance > 0 and price <= trailing_stop_price:
         sell_all_btc(price)
 
