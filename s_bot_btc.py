@@ -5,9 +5,9 @@ from email.message import EmailMessage
 import os
 
 # ===== Paramètres ajustables =====
-investment_amount = 0.001  # BTC à acheter toutes les 15 min
-trailing_stop_percentage = 0.3  # en %
-sleep_time = 900  # 15 minutes (en secondes)
+investment_amount = 0.001  # BTC à acheter toutes les 5 min
+trailing_stop_percentage = 0.1  # en %
+sleep_time = 300  # 5 minutes (en secondes)
 usd_balance = 10000.0
 btc_balance = 0.0
 btc_buy_price = None
@@ -79,7 +79,7 @@ while True:
     price = get_btc_price()
     print(f"📈 Prix actuel BTC : {price:.2f} USD")
 
-    # Achat toutes les 15 minutes
+    # Achat toutes les 5 minutes
     if buy_btc(price):
         if trailing_stop_price is None:
             trailing_stop_price = price * (1 - trailing_stop_percentage / 100)
