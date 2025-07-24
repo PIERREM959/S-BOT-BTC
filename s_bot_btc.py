@@ -6,15 +6,15 @@ import os
 from datetime import datetime
 from colorama import Fore, Style, init
 
-init(autoreset=True)  # Réinitialise les couleurs après chaque print
+init(autoreset=True)  # Reset des couleurs après chaque print
 
 # ===== Paramètres ajustables =====
-investment_amount = 0.001  # BTC à acheter toutes les 10 sec
-trailing_stop_percentage = 0.05  # en %
-sleep_time = 10  # 10 secondes
+investment_amount = 0.001  # BTC à acheter à chaque cycle
+trailing_stop_percentage = 0.05  # en % (0,05 %)
+sleep_time = 10  # secondes
 usd_balance = 10000.0
 btc_balance = 0.0
-btc_buy_price = None
+highest_price = None
 trailing_stop_price = None
 
 # ===== Variables d'environnement =====
@@ -22,7 +22,7 @@ EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAIL = os.getenv("TO_EMAIL")
 
-# ===== Fonction pour envoyer un email =====
+# ===== Fonction email =====
 def send_email(subject, body):
     if EMAIL_ADDRESS and EMAIL_PASSWORD and TO_EMAIL:
         try:
@@ -38,16 +38,16 @@ def send_email(subject, body):
 
             print(Fore.GREEN + "✅ Email envoyé avec succès.")
         except Exception as e:
-            print(Fore.RED + f"❌ Erreur lors de l'envoi de l'email : {e}")
+            print(Fore.RED + f"❌ Erreur email : {e}")
     else:
-        print(Fore.YELLOW + "⚠️ Variables EMAIL non définies, email non envoyé.")
+        print(Fore.YELLOW + "⚠️ EMAIL non configuré, email ignoré.")
 
 # ===== Fonction pour obtenir le prix BTC =====
 def get_btc_price():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="1d", interval="1m")  # Dernière minute
+    data = ticker.history(period="1d", interval="1m")
     if data.empty:
-        print(Fore.YELLOW + "⚠️ Pas de données reçues, on réessaie...")
+        print(Fore.YELLOW + "⚠️ Pas de données reçues, retry...")
         time.sleep(10)
         return get_btc_price()
     return data["Close"].iloc[-1]
@@ -60,62 +60,58 @@ def buy_btc(price):
         usd_balance -= cost
         btc_balance += investment_amount
         print(Fore.GREEN + f"🟢 Achat : {investment_amount} BTC à {price:.2f} USD")
-        return True
     else:
         print(Fore.RED + "❌ Solde insuffisant pour acheter.")
-        return False
 
 # ===== Vente BTC =====
 def sell_all_btc(price):
-    global usd_balance, btc_balance
+    global usd_balance, btc_balance, highest_price, trailing_stop_price
     if btc_balance > 0:
         usd_balance += btc_balance * price
         print(Fore.RED + f"🔴 Vente : {btc_balance:.6f} BTC à {price:.2f} USD")
         send_email(
             "Vente exécutée - S Bot BTC",
-            f"Vente effectuée à {price:.2f} USD\n"
-            f"Solde USD: {usd_balance:.2f}\nSolde BTC: 0.0"
+            f"Vente à {price:.2f} USD\nSolde USD: {usd_balance:.2f}\nSolde BTC: 0.0"
         )
         btc_balance = 0.0
+        highest_price = None
+        trailing_stop_price = None
 
 # ===== Variables pour email horaire =====
 last_email_time = time.time()
 
 # ===== Boucle principale =====
+print(Fore.CYAN + "🚀 S-BOT-BTC démarré avec la configuration suivante :")
+print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
+print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% (logique High Watermark)")
+print(Fore.CYAN + "=========================================\n")
+
 while True:
     price = get_btc_price()
     print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD")
 
-    # Achat systématique toutes les 10 sec
-    if buy_btc(price):
-        if trailing_stop_price is None:
-            trailing_stop_price = price * (1 - trailing_stop_percentage / 100)
-        btc_buy_price = price
+    # Achat systématique
+    buy_btc(price)
 
-    # Mise à jour du trailing stop si le prix monte
-    if btc_balance > 0 and price > btc_buy_price:
-        new_stop = price * (1 - trailing_stop_percentage / 100)
-        if new_stop > trailing_stop_price:
-            trailing_stop_price = new_stop
-            print(Fore.BLUE + f"🛡️ Nouveau trailing stop : {trailing_stop_price:.2f} USD")
+    # Mise à jour du highest price et du trailing stop
+    if highest_price is None or price > highest_price:
+        highest_price = price
+        trailing_stop_price = highest_price * (1 - trailing_stop_percentage / 100)
+        print(Fore.BLUE + f"🛡️ Nouveau trailing stop : {trailing_stop_price:.2f} USD")
 
-    # Vérifie si on touche le trailing stop
+    # Vérification du stop
     if btc_balance > 0 and price <= trailing_stop_price:
         sell_all_btc(price)
-        trailing_stop_price = None
-        btc_buy_price = None
 
-    # Logs solde avec couleur
-    print(Fore.YELLOW + f"💰 Solde USD: {usd_balance:.2f}, BTC: {btc_balance:.6f}")
-    print(Fore.MAGENTA + f"🛑 Trailing Stop: {trailing_stop_price if trailing_stop_price else 'None'}")
+    # Logs
+    print(Fore.YELLOW + f"💰 Solde USD: {usd_balance:.2f} | BTC: {btc_balance:.6f}")
+    print(Fore.MAGENTA + f"📊 Plus haut prix: {highest_price:.2f} | Stop: {trailing_stop_price:.2f}")
 
-    # Envoi email toutes les heures
+    # Email toutes les heures
     if time.time() - last_email_time >= 3600:
         send_email(
             "Rapport horaire - S Bot BTC",
-            f"[{datetime.now()}]\n"
-            f"Solde USD: {usd_balance:.2f}\n"
-            f"Solde BTC: {btc_balance:.6f}"
+            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}"
         )
         last_email_time = time.time()
 
