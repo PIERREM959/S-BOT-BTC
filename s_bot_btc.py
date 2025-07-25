@@ -45,7 +45,7 @@ def send_email(subject, body):
 # ===== Récup prix BTC + MM50 =====
 def get_price_and_mm50():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="7d", interval="5m")
+    data = ticker.history(period="7d", interval="15m")
     if data.empty or len(data) < 50:
         print(Fore.YELLOW + "⚠️ Pas assez de données pour MM50, retry...")
         time.sleep(10)
