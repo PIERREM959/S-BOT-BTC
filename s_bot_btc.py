@@ -20,6 +20,9 @@ highest_price = None
 trailing_stop_price = None
 csv_file = "sbot_performance.csv"
 
+# Variables pour tendance
+previous_mm50 = None
+
 # ===== Variables d'environnement (Render) =====
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
@@ -142,25 +145,36 @@ last_email_time = time.time()
 last_report_time = time.time()
 
 # ===== Logs init =====
-print(Fore.CYAN + "🚀 S-BOT-BTC avec MM50 + Contrôle Budget + Rapport Auto démarré")
+print(Fore.CYAN + "🚀 S-BOT-BTC avec Détection Tendance + Contrôle Budget + Rapport Auto")
 print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
 print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM50 active")
 print(Fore.CYAN + "=========================================\n")
 
 # ===== Boucle principale =====
 while True:
+    global previous_mm50
     price, mm50 = get_price_and_mm50()
-    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD")
 
-    # Achat uniquement si Prix > MM50
-    if price > mm50:
-        print(Fore.GREEN + "✅ Condition remplie : Achat autorisé.")
+    # Détection de tendance
+    tendance = "Inconnue"
+    if previous_mm50 is not None:
+        if mm50 > previous_mm50:
+            tendance = "Haussière"
+        else:
+            tendance = "Baissière"
+    previous_mm50 = mm50
+
+    print(Fore.CYAN + f"\n📈 Prix BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD | Tendance : {tendance}")
+
+    # Achat uniquement si tendance haussière
+    if tendance == "Haussière":
+        print(Fore.GREEN + "✅ Tendance haussière : Achat autorisé.")
         if usd_balance >= investment_amount * price:
             buy_btc(price)
         else:
             print(Fore.RED + "⏸ Achat suspendu : Solde USD insuffisant.")
     else:
-        print(Fore.YELLOW + "⏸ Condition non remplie : Pas d'achat (standby).")
+        print(Fore.YELLOW + "⏸ Tendance baissière : Pas d'achat (standby).")
 
     # Mise à jour trailing stop
     if highest_price is None or price > highest_price:
@@ -180,7 +194,7 @@ while True:
     if time.time() - last_email_time >= 3600:
         send_email(
             "Rapport horaire - S Bot BTC",
-            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm50:.2f}"
+            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm50:.2f}\nTendance: {tendance}"
         )
         last_email_time = time.time()
 
