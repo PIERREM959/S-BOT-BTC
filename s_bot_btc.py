@@ -11,7 +11,7 @@ init(autoreset=True)  # Reset couleurs après chaque print
 # ===== Paramètres ajustables =====
 investment_amount = 0.01  # BTC par achat
 trailing_stop_percentage = 0.4  # en % (0,4%)
-sleep_time = 900  # 5 minutes
+sleep_time = 900  # 15 minutes
 usd_balance = 100000.0  # Capital initial
 btc_balance = 0.0
 highest_price = None
@@ -53,7 +53,7 @@ def get_price_and_mm50():
 
     close_prices = data["Close"].iloc[-50:]
     price = close_prices.iloc[-1]
-    mm30 = close_prices.mean()
+    mm50 = close_prices.mean()
     return price, mm50
 
 # ===== Achat BTC =====
