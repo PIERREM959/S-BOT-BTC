@@ -16,12 +16,15 @@ usd_balance = 100000.0  # Capital initial
 btc_balance = 0.0
 highest_price = None
 trailing_stop_price = None
-previous_mm50 = None  # Pour calcul tendance
+
+# ===== Suivi tendance =====
+previous_mm50 = None  # Pour détecter la tendance
 
 # ===== Variables d'environnement (Render) =====
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAIL = os.getenv("TO_EMAIL")
+
 
 # ===== Envoi email =====
 def send_email(subject, body):
@@ -43,6 +46,7 @@ def send_email(subject, body):
     else:
         print(Fore.YELLOW + "⚠️ EMAIL non configuré, email ignoré.")
 
+
 # ===== Récup prix BTC + MM50 =====
 def get_price_and_mm50():
     ticker = yf.Ticker("BTC-USD")
@@ -57,6 +61,23 @@ def get_price_and_mm50():
     mm50 = close_prices.mean()
     return price, mm50
 
+
+# ===== Détection tendance avec couleur =====
+def check_trend(current_mm50):
+    global previous_mm50
+    trend = "Neutre"
+    color = Fore.YELLOW
+    if previous_mm50 is not None:
+        if current_mm50 > previous_mm50:
+            trend = "Hausse"
+            color = Fore.GREEN
+        elif current_mm50 < previous_mm50:
+            trend = "Baisse"
+            color = Fore.RED
+    previous_mm50 = current_mm50
+    return trend, color
+
+
 # ===== Achat BTC =====
 def buy_btc(price):
     global usd_balance, btc_balance
@@ -67,6 +88,7 @@ def buy_btc(price):
         print(Fore.GREEN + f"🟢 Achat : {investment_amount} BTC à {price:.2f} USD")
     else:
         print(Fore.RED + "⏸ Achat suspendu : Solde USD insuffisant.")
+
 
 # ===== Vente BTC =====
 def sell_all_btc(price):
@@ -82,35 +104,25 @@ def sell_all_btc(price):
         highest_price = None
         trailing_stop_price = None
 
+
 # ===== Variables email horaire =====
 last_email_time = time.time()
 
 # ===== Logs init =====
-print(Fore.CYAN + "🚀 S-BOT-BTC avec MM50 + Contrôle Budget + Détection Tendance démarré")
+print(Fore.CYAN + "🚀 S-BOT-BTC avec MM50 + Détection Tendance démarré")
 print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
-print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM50 active")
+print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM50 active + Filtrage tendance")
 print(Fore.CYAN + "=========================================\n")
 
 # ===== Boucle principale =====
 while True:
     price, mm50 = get_price_and_mm50()
-    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD")
+    trend, color = check_trend(mm50)
 
-    # Déterminer la tendance (comparaison MM50 actuelle vs précédente)
-    global previous_mm50
-    if previous_mm50 is None:
-        tendance = "Indéterminée"
-    else:
-        if mm50 > previous_mm50:
-            tendance = "Haussière"
-        else:
-            tendance = "Baissière"
+    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD | Tendance : {color}{trend}")
 
-    previous_mm50 = mm50
-    print(Fore.MAGENTA + f"📊 Tendance actuelle : {tendance}")
-
-    # Achat uniquement si tendance haussière ET prix > MM50
-    if tendance == "Haussière" and price > mm50:
+    # Achat uniquement si Prix > MM50 ET tendance haussière
+    if price > mm50 and trend == "Hausse":
         print(Fore.GREEN + "✅ Condition remplie : Achat autorisé.")
         if usd_balance >= investment_amount * price:
             buy_btc(price)
@@ -137,7 +149,7 @@ while True:
     if time.time() - last_email_time >= 3600:
         send_email(
             "Rapport horaire - S Bot BTC",
-            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm50:.2f}\nTendance: {tendance}"
+            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm50:.2f}\nTendance: {trend}"
         )
         last_email_time = time.time()
 
