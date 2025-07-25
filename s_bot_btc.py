@@ -4,16 +4,17 @@ import smtplib
 from email.message import EmailMessage
 import os
 from datetime import datetime
-import csv
 from colorama import Fore, init
+import pandas as pd
+import matplotlib.pyplot as plt
 
 init(autoreset=True)
 
 # ===== Paramètres ajustables =====
 investment_amount = 0.01  # BTC par achat
-trailing_stop_percentage = 0.4  # en % (0,4%)
+trailing_stop_percentage = 0.4  # en %
 sleep_time = 900  # 15 minutes
-usd_balance = 100000.0  # Capital initial
+usd_balance = 100000.0
 btc_balance = 0.0
 highest_price = None
 trailing_stop_price = None
@@ -24,12 +25,8 @@ EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAIL = os.getenv("TO_EMAIL")
 
-# ===== Fonction pour logs avec timestamp =====
-def log(msg, color=Fore.WHITE):
-    print(color + f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
-
 # ===== Envoi email =====
-def send_email(subject, body):
+def send_email(subject, body, attachment=None):
     if EMAIL_ADDRESS and EMAIL_PASSWORD and TO_EMAIL:
         try:
             msg = EmailMessage()
@@ -38,28 +35,73 @@ def send_email(subject, body):
             msg["To"] = TO_EMAIL
             msg.set_content(body)
 
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as smtp:
+            if attachment and os.path.exists(attachment):
+                with open(attachment, "rb") as f:
+                    msg.add_attachment(f.read(), maintype="image", subtype="png", filename="rapport.png")
+
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
                 smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
                 smtp.send_message(msg)
 
-            log("✅ Email envoyé avec succès.", Fore.GREEN)
+            print(Fore.GREEN + "✅ Email envoyé avec succès.")
         except Exception as e:
-            log(f"❌ Erreur email : {e}", Fore.RED)
+            print(Fore.RED + f"❌ Erreur email : {e}")
     else:
-        log("⚠️ EMAIL non configuré, email ignoré.", Fore.YELLOW)
+        print(Fore.YELLOW + "⚠️ EMAIL non configuré, email ignoré.")
 
-# ===== Création du fichier CSV si inexistant =====
+# ===== Initialiser CSV =====
 if not os.path.exists(csv_file):
-    with open(csv_file, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Date & Heure", "Action", "Prix BTC", "Quantité BTC", "Solde USD", "Solde BTC", "Valeur Totale USD", "Commentaire"])
+    with open(csv_file, "w") as f:
+        f.write("Date & Heure,Action,Prix BTC,Quantité BTC,Solde USD,Solde BTC,Valeur Totale USD\n")
+
+def save_transaction(action, price):
+    total_value = usd_balance + btc_balance * price
+    with open(csv_file, "a") as f:
+        f.write(f"{datetime.now()},{action},{price},{investment_amount if action=='Achat' else 0},{usd_balance},{btc_balance},{total_value}\n")
+
+# ===== Analyse quotidienne =====
+def generate_daily_report():
+    if not os.path.exists(csv_file):
+        return
+
+    df = pd.read_csv(csv_file)
+    if df.empty:
+        return
+
+    initial_value = df["Valeur Totale USD"].iloc[0]
+    final_value = df["Valeur Totale USD"].iloc[-1]
+    profit = final_value - initial_value
+    profit_pct = (profit / initial_value) * 100
+
+    nb_achats = df[df["Action"] == "Achat"].shape[0]
+    nb_ventes = df[df["Action"] == "Vente"].shape[0]
+
+    # Graphique
+    plt.figure(figsize=(8, 5))
+    plt.plot(df["Date & Heure"], df["Valeur Totale USD"], color="blue", marker="o")
+    plt.title("Évolution du Portefeuille")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    chart_path = "rapport.png"
+    plt.savefig(chart_path)
+    plt.close()
+
+    report_text = (
+        f"Rapport quotidien S-BOT-BTC\n\n"
+        f"Valeur initiale : {initial_value:.2f} USD\n"
+        f"Valeur finale   : {final_value:.2f} USD\n"
+        f"Profit/Perte    : {profit:.2f} USD ({profit_pct:.2f}%)\n"
+        f"Achats : {nb_achats}, Ventes : {nb_ventes}\n"
+    )
+
+    send_email("Rapport quotidien S-BOT-BTC", report_text, chart_path)
 
 # ===== Récup prix BTC + MM50 =====
 def get_price_and_mm50():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="14d", interval="15m")
+    data = ticker.history(period="15d", interval="15m")
     if data.empty or len(data) < 50:
-        log("⚠️ Pas assez de données pour MM50, retry...", Fore.YELLOW)
+        print(Fore.YELLOW + "⚠️ Pas assez de données pour MM50, retry...")
         time.sleep(10)
         return get_price_and_mm50()
 
@@ -68,22 +110,6 @@ def get_price_and_mm50():
     mm50 = close_prices.mean()
     return price, mm50
 
-# ===== Écriture CSV =====
-def write_to_csv(action, price, qty, comment):
-    total_value = usd_balance + (btc_balance * price)
-    with open(csv_file, "a", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            action,
-            f"{price:.2f}",
-            f"{qty:.6f}",
-            f"{usd_balance:.2f}",
-            f"{btc_balance:.6f}",
-            f"{total_value:.2f}",
-            comment
-        ])
-
 # ===== Achat BTC =====
 def buy_btc(price):
     global usd_balance, btc_balance
@@ -91,18 +117,18 @@ def buy_btc(price):
     if usd_balance >= cost:
         usd_balance -= cost
         btc_balance += investment_amount
-        log(f"🟢 Achat : {investment_amount} BTC à {price:.2f} USD", Fore.GREEN)
-        write_to_csv("Achat", price, investment_amount, "Condition MM50 remplie")
+        save_transaction("Achat", price)
+        print(Fore.GREEN + f"🟢 Achat : {investment_amount} BTC à {price:.2f} USD")
     else:
-        log("⏸ Achat suspendu : Solde USD insuffisant.", Fore.RED)
+        print(Fore.RED + "⏸ Achat suspendu : Solde USD insuffisant.")
 
 # ===== Vente BTC =====
 def sell_all_btc(price):
     global usd_balance, btc_balance, highest_price, trailing_stop_price
     if btc_balance > 0:
         usd_balance += btc_balance * price
-        log(f"🔴 Vente : {btc_balance:.6f} BTC à {price:.2f} USD", Fore.RED)
-        write_to_csv("Vente", price, btc_balance, "Trailing Stop atteint")
+        save_transaction("Vente", price)
+        print(Fore.RED + f"🔴 Vente : {btc_balance:.6f} BTC à {price:.2f} USD")
         send_email(
             "Vente exécutée - S Bot BTC",
             f"Vente à {price:.2f} USD\nSolde USD: {usd_balance:.2f}\nSolde BTC: 0.0"
@@ -111,48 +137,44 @@ def sell_all_btc(price):
         highest_price = None
         trailing_stop_price = None
 
-# ===== Logs init =====
-log("🚀 S-BOT-BTC avec MM50 + Contrôle Budget + Suivi CSV démarré", Fore.CYAN)
-log(f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s", Fore.CYAN)
-log(f"Trailing Stop : {trailing_stop_percentage}% | MM50 active", Fore.CYAN)
-log("=========================================", Fore.CYAN)
-
-# ===== Variables email horaire =====
+# ===== Variables pour email et rapport =====
 last_email_time = time.time()
+last_report_time = time.time()
+
+# ===== Logs init =====
+print(Fore.CYAN + "🚀 S-BOT-BTC avec MM50 + Contrôle Budget + Rapport Auto démarré")
+print(Fore.CYAN + f"💰 Solde initial USD : {usd_balance}, Achat toutes les {sleep_time}s")
+print(Fore.CYAN + f"Trailing Stop : {trailing_stop_percentage}% | MM50 active")
+print(Fore.CYAN + "=========================================\n")
 
 # ===== Boucle principale =====
 while True:
     price, mm50 = get_price_and_mm50()
-    log(f"📈 Prix BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD", Fore.CYAN)
+    print(Fore.CYAN + f"\n📈 Prix actuel BTC : {price:.2f} USD | MM50 : {mm50:.2f} USD")
 
-    # Affichage tendance
+    # Achat uniquement si Prix > MM50
     if price > mm50:
-        log("📊 Tendance : Haussière (Prix > MM50)", Fore.GREEN)
-    else:
-        log("📊 Tendance : Baissière (Prix < MM50)", Fore.RED)
-
-    # Achat si condition remplie
-    if price > mm50:
+        print(Fore.GREEN + "✅ Condition remplie : Achat autorisé.")
         if usd_balance >= investment_amount * price:
             buy_btc(price)
         else:
-            log("⏸ Achat suspendu : Solde USD insuffisant.", Fore.RED)
+            print(Fore.RED + "⏸ Achat suspendu : Solde USD insuffisant.")
     else:
-        log("⏸ Pas d'achat (Prix < MM50)", Fore.YELLOW)
+        print(Fore.YELLOW + "⏸ Condition non remplie : Pas d'achat (standby).")
 
     # Mise à jour trailing stop
     if highest_price is None or price > highest_price:
         highest_price = price
         trailing_stop_price = highest_price * (1 - trailing_stop_percentage / 100)
-        log(f"🛡️ Nouveau trailing stop : {trailing_stop_price:.2f} USD", Fore.BLUE)
+        print(Fore.BLUE + f"🛡️ Nouveau trailing stop : {trailing_stop_price:.2f} USD")
 
     # Vente si prix <= trailing stop
     if btc_balance > 0 and price <= trailing_stop_price:
         sell_all_btc(price)
 
-    # Logs résumé
-    log(f"💰 Solde USD: {usd_balance:.2f} | BTC: {btc_balance:.6f}", Fore.YELLOW)
-    log(f"📊 Plus haut prix: {highest_price:.2f} | Stop: {trailing_stop_price:.2f}", Fore.MAGENTA)
+    # Logs
+    print(Fore.YELLOW + f"💰 Solde USD: {usd_balance:.2f} | BTC: {btc_balance:.6f}")
+    print(Fore.MAGENTA + f"📊 Plus haut prix: {highest_price:.2f} | Stop: {trailing_stop_price:.2f}")
 
     # Email toutes les heures
     if time.time() - last_email_time >= 3600:
@@ -161,5 +183,10 @@ while True:
             f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm50:.2f}"
         )
         last_email_time = time.time()
+
+    # Rapport quotidien toutes les 24h
+    if time.time() - last_report_time >= 86400:  # 24 heures
+        generate_daily_report()
+        last_report_time = time.time()
 
     time.sleep(sleep_time)
