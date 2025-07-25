@@ -45,16 +45,16 @@ def send_email(subject, body):
 # ===== Récup prix BTC + MM50 =====
 def get_price_and_mm50():
     ticker = yf.Ticker("BTC-USD")
-    data = ticker.history(period="1d", interval="5m")
+    data = ticker.history(period="7d", interval="5m")
     if data.empty or len(data) < 50:
         print(Fore.YELLOW + "⚠️ Pas assez de données pour MM50, retry...")
         time.sleep(10)
-        return get_price_and_mm30()
+        return get_price_and_mm50()
 
     close_prices = data["Close"].iloc[-50:]
     price = close_prices.iloc[-1]
     mm30 = close_prices.mean()
-    return price, mm30
+    return price, mm50
 
 # ===== Achat BTC =====
 def buy_btc(price):
@@ -123,7 +123,7 @@ while True:
     if time.time() - last_email_time >= 3600:
         send_email(
             "Rapport horaire - S Bot BTC",
-            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm30:.2f}"
+            f"[{datetime.now()}]\nSolde USD: {usd_balance:.2f}\nSolde BTC: {btc_balance:.6f}\nPrix actuel: {price:.2f}\nMM50: {mm50:.2f}"
         )
         last_email_time = time.time()
 
