@@ -1,45 +1,28 @@
-# S Bot BTC
-
-Bot fictif qui achète du BTC toutes les 15 minutes, applique un trailing stop, et envoie un email lors des ventes.
+# S-BOT-BTC (Render + Analyse)
 
 ## ✅ Fonctionnalités
-- Achat automatique (par défaut 0.01 BTC toutes les 15 minutes)
-- Trailing Stop dynamique (0.4%)
-- ET ACHAT SEULEMENT SI COURS > MM50
-- si cours < MM50 Standby
-- si solde USD insufisant Mise en veille du Bot ,maintien de la surveillance du TS
-- VENTE SEULEMENT AU TRALING STOP
-- Solde fictif (100000 USD)
-- Envoi d'un email après chaque vente
-- Logs en temps réel avec heartbeat
+- Achat toutes les 15 min si Prix > MM50
+- Trailing Stop dynamique (0,4%)
+- Solde fictif en USD & BTC
+- Envoi email (vente + rapport horaire)
+- Suivi CSV des performances
+- Script d'analyse avec graphique
 
 ---
 
-## ✅ Déploiement sur Render (Background Worker)
-1. Poussez votre code sur GitHub.
-2. Sur Render :
-   - Créez un **Background Worker**
-   - **Build Command** :
-     ```
-     pip install -r requirements.txt
-     ```
-   - **Start Command** :
-     ```
-     python s_bot_btc.py
-     ```
-   - Ajoutez les variables d'environnement :
-     ```
-     EMAIL_ADDRESS = votre_email
-     EMAIL_PASSWORD = votre_mot_de_passe_app
-     TO_EMAIL = destinataire_email
-     ```
-3. Cliquez sur **Create Background Worker**.
+## ✅ Déploiement sur Render
+1. Créez un **Background Worker** sur Render.
+2. Ajoutez les fichiers `s_bot_btc.py` et `requirements.txt`.
+3. Configurez les **Variables d'environnement** :
+   - `EMAIL_ADDRESS`
+   - `EMAIL_PASSWORD`
+   - `TO_EMAIL`
+4. Déployez !
 
 ---
 
-## ✅ Ajuster les paramètres
-Dans `s_bot_btc.py`, vous pouvez modifier :
-```python
-investment_amount = 0.001  # BTC par achat
-trailing_stop_percentage = 0.3  # pourcentage du trailing stop
-sleep_time = 900  # intervalle en secondes (15 minutes)
+## ✅ Analyse des performances
+- Téléchargez `sbot_performance.csv` depuis Render.
+- Exécutez `analyse_sbot.py` en local :
+```bash
+python analyse_sbot.py
